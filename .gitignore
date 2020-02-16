@@ -1,0 +1,5 @@
+node_modules
+/wschat*
+/.cache
+/dist
+/statik
