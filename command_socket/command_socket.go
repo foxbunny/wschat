@@ -4,6 +4,8 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -87,7 +89,26 @@ func logErrors(ws *websocket.Conn, errIO <-chan Error, done chan struct{}) {
 	close(done)
 }
 
+func parseIntParam(q url.Values, param string, def int) int {
+	val := q.Get(param)
+	i, err := strconv.Atoi(val)
+	if err != nil {
+		return i
+	}
+	return def
+}
+
+func parseFloatParam(q url.Values, param string, def float64) float64 {
+	val := q.Get(param)
+	n, err := strconv.ParseFloat(val, -1)
+	if err != nil {
+		return n
+	}
+	return def
+}
+
 func ServeSock(w http.ResponseWriter, r *http.Request, cmd string) {
+	// Upgrade HTTP connection to websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("upgrade:", err)
@@ -95,21 +116,27 @@ func ServeSock(w http.ResponseWriter, r *http.Request, cmd string) {
 	}
 	defer ws.Close()
 
+	// Create channels for communicating with the underlying chat program
 	cmdIO := make(chan []byte)
 	errIO := make(chan Error)
 	done := make(chan struct{})
+
+	// Parse out the radio configuration
+	q := r.URL.Query()
 	params := RadioParams{
-		frequency:       1000,
-		spreadingFactor: 192,
-		bandwidth:       200,
-		codingRate:      5,
+		frequency:       parseFloatParam(q, "frequency", DEFAULT_FREQUENCY),
+		bandwidth:       parseIntParam(q, "bandwidth", DEFAULT_BANDWIDTH),
+		spreadingFactor: parseIntParam(q, "spreadingFactor", DEFAULT_SPREADING_FACTOR),
+		codingRate:      parseIntParam(q, "codingRate", DEFAULT_CODING_RATE),
 	}
 
+	// Spin up all goroutines
 	go SpawnChat(cmd, params, done, cmdIO, errIO)
 	go sockToStdin(ws, cmdIO, errIO)
 	go stdoutToSock(ws, cmdIO, errIO, done)
 	go logErrors(ws, errIO, done)
 	go ping(ws, done)
 
+	// Block the done channel and wait for something to send to it
 	<-done
 }

@@ -9,13 +9,6 @@ import (
 	"time"
 )
 
-type RadioParams struct {
-	frequency       float64
-	spreadingFactor int
-	bandwidth       int
-	codingRate      int
-}
-
 func stdOutToChn(r io.Reader, cmdIO chan []byte, errorIO chan Error) {
 	s := bufio.NewScanner(r)
 	for s.Scan() {
@@ -65,12 +58,12 @@ func SpawnChat(
 	args := []string{
 		"-f",
 		strconv.FormatFloat(params.frequency, 'f', -1, 32),
-		"-s",
-		strconv.Itoa(params.spreadingFactor),
 		"-b",
-		strconv.Itoa(params.bandwidth),
+		strconv.Itoa(Bandwidths[params.bandwidth]),
+		"-s",
+		strconv.Itoa(SpreadingFactors[params.spreadingFactor]),
 		"-c",
-		strconv.Itoa(params.codingRate),
+		strconv.Itoa(CodingRates[params.codingRate]),
 	}
 
 	// Start the command and bind to input/output pipes
