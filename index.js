@@ -42,20 +42,16 @@ const INPUT_STYLE = {
 // -----------------------------------------------------------------------------
 
 const DEFAULT_FREQUENCY = 1000
-const CODING_RATE_OPTIONS = [
-  ['4/5', 5],
-  ['4/6', 6],
-  ['4/7', 7],
-  ['4/8', 8],
-]
+const DEFAULT_BANDWIDTH = 400
 const DEFAULT_CODING_RATE = 5
+const DEFAULT_SPREADING_FACTOR = 12
+
 const BANDWIDTH_OPTIONS = [
   [200, 200],
   [400, 400],
   [800, 800],
   [1600, 1600],
 ]
-const DEFAULT_BANDWIDTH = 200
 const SPREADING_FACTOR_OPTIONS = [
   [5, 5],
   [6, 6],
@@ -66,7 +62,12 @@ const SPREADING_FACTOR_OPTIONS = [
   [11, 11],
   [12, 12],
 ]
-const DEFAULT_SPREADING_FACTOR = 12
+const CODING_RATE_OPTIONS = [
+  ['4/5', 5],
+  ['4/6', 6],
+  ['4/7', 7],
+  ['4/8', 8],
+]
 const ORIGIN = window.location.origin.split(':').slice(1).join(':')
 
 // -----------------------------------------------------------------------------
@@ -110,12 +111,14 @@ let state = observable({
       q.push(`${param}=${encodeURIComponent(value)}`)
     }
     let ws = new WebSocket(`ws://${ORIGIN}/sock?${q.join('&')}`)
-    ws.onmessage = function ({ data }) { model.messages.push(data) }
+    ws.onmessage = function ({ data }) {
+      model.messages.push(data)
+    }
     ws.onclose = function () {
       model.socket = null
     }
-    ws.onerror = function (error) {
-      alert(error)
+    ws.onerror = function () {
+      alert('Connection error. Server may be offline.')
     }
     ws.onopen = function () {
       model.socket = ws
@@ -129,6 +132,7 @@ let state = observable({
   send () {
     if (this.socket) {
       this.socket.send(this.text)
+      this.messages.push(`< ${this.text}`)
       this.text = ''
     }
   },
@@ -138,7 +142,7 @@ let state = observable({
 // COMPONENTS
 // -----------------------------------------------------------------------------
 
-function Select ({ label, options, param }) {
+let Select = observer(function ({ label, options, param }) {
   function onChange (e) {
     state.updateParam(param, e.target.value)
   }
@@ -156,9 +160,9 @@ function Select ({ label, options, param }) {
       </label>
     </div>
   )
-}
+})
 
-function Input ({ label, error, param }) {
+let Input = observer(function ({ label, error, param }) {
   function onChange (e) {
     state.updateParam(param, e.target.value)
   }
@@ -173,9 +177,9 @@ function Input ({ label, error, param }) {
       {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>
   )
-}
+})
 
-function LinkButton ({ children, onClick }) {
+let LinkButton = observer(function ({ children, onClick }) {
   return (
     <button
       onClick={onClick}
@@ -191,7 +195,7 @@ function LinkButton ({ children, onClick }) {
       {children}
     </button>
   )
-}
+})
 
 // -----------------------------------------------------------------------------
 // PAGES
@@ -217,7 +221,7 @@ let Setup = observer(function App () {
           <Input label="Frequency (MHz)" param="frequency"
                  error={state.freqError}/>
           <Select label="Bandwdith (kHz)" options={BANDWIDTH_OPTIONS}
-                  param="bandwdith"/>
+                  param="bandwidth"/>
           <Select label="Spreading factor" options={SPREADING_FACTOR_OPTIONS}
                   param="spreadingFactor"/>
           <Select label="Coding rate" options={CODING_RATE_OPTIONS}
@@ -315,8 +319,7 @@ let ChatWindow = observer(function () {
                 alignItems: 'center',
               }}
               onSubmit={sendMessage}>
-              >
-              <input
+              : <input
                 autoFocus
                 value={state.text}
                 style={{

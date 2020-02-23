@@ -9,7 +9,7 @@ type RadioParams struct {
 
 const DEFAULT_FREQUENCY = 1000.0
 const DEFAULT_SPREADING_FACTOR = 12
-const DEFAULT_BANDWIDTH = 200
+const DEFAULT_BANDWIDTH = 400
 const DEFAULT_CODING_RATE = 5
 
 var Bandwidths = map[int]int{
