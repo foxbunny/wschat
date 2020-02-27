@@ -58,6 +58,14 @@ func SpawnChat(
 
 	defer close(done)
 
+	// Create a common output pipe
+	outr, outw, err := os.Pipe()
+	if err != nil {
+		errIO <- Error{err: err, msg: "Failed to open common output pipe"}
+		close(done)
+
+	}
+
 	// Start the command and bind to input/output pipes
 	proc := exec.Command(
 		cmd,
@@ -72,16 +80,12 @@ func SpawnChat(
 	)
 	inw, err := proc.StdinPipe()
 	if err != nil {
-		errIO <- Error{err: err, msg: "Failed to open input pipe command"}
+		errIO <- Error{err: err, msg: "Failed to open input pipe for command"}
 		close(done)
 		return
 	}
-	outr, err := proc.StdoutPipe()
-	if err != nil {
-		errIO <- Error{err: err, msg: "Failed to open input pipe command"}
-		close(done)
-		return
-	}
+	proc.Stdout = outw
+	proc.Stderr = outw
 	if err = proc.Start(); err != nil {
 		errIO <- Error{err: err, msg: "Could not start the process"}
 		close(done)
