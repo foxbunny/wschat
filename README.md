@@ -16,23 +16,16 @@ TODO
 To start the server run with:
 
 ```bash
-./wschat PROGRAM [ARG, ARG...]
+./wschat PATH_TO_CHAT
 ```
 
-`PROGRAM` is the name of the program that you wish to expose. For example, to
-use the Othernet chat program:
-
-```bash
-./wschat /path/to/chat
-```
-
-You can also supply additional command line arguments after the command.
+`PATH_TO_CHAT` is full path to the Othernet chat program.
 
 You can change the address and the port to which the server should bind by
 specifying the `--addr` command line argument:
 
 ```bash
-./wschat --addr 0.0.0.0:3000 /path/to/chat
+./wschat --addr 0.0.0.0:3000 PATH_TO_CHAT
 ```
 
 ## Developing
