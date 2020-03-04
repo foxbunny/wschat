@@ -1,41 +1,7 @@
-import { observable } from 'mobx'
+import { observable, runInAction } from 'mobx'
 import { observer } from 'mobx-react-lite'
-import React, { useRef, useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
-
-// -----------------------------------------------------------------------------
-// THEME
-// -----------------------------------------------------------------------------
-
-const THEME = {
-  fontFamily: 'Helvetica, Arial, sans-serif',
-  fontSize: '18px',
-  clickableElementColor: '#00b2df',
-  chatAreaBackground: '#efefef',
-  chatInputLineBackground: 'rgba(0, 0, 0, 0.1)',
-  chatFontFamily: 'monospace',
-  chatFontSize: '18px',
-}
-
-const BUTTON_STYLE = {
-  fontFamily: THEME.fontFamily,
-  fontSize: THEME.fontSize,
-  padding: '0.2rem 1rem',
-  background: THEME.clickableElementColor,
-  border: 0,
-  cursor: 'pointer',
-  borderRadius: '3px',
-  color: 'white',
-}
-
-const INPUT_STYLE = {
-  fontFamily: THEME.fontFamily,
-  fontSize: THEME.fontSize,
-  padding: '0.2rem',
-  border: '1px solid #555',
-  width: '100%',
-  borderRadius: '3px',
-}
 
 // -----------------------------------------------------------------------------
 // CONSTANTS
@@ -70,11 +36,90 @@ const CODING_RATE_OPTIONS = [
 ]
 const ORIGIN = window.location.origin.split(':').slice(1).join(':')
 
+const ME = Symbol('me')
+const SYSTEM = Symbol('system')
+const ALIASES = new Map([
+  [ME, 'Me'],
+  [SYSTEM, 'System'],
+])
+
+// -----------------------------------------------------------------------------
+// THEME
+// -----------------------------------------------------------------------------
+
+const THEME = {
+  fontFamily: 'Helvetica, Arial, sans-serif',
+  fontSize: '16px',
+  clickableElementColor: '#00b2df',
+  chatAreaBackground: '#efefef',
+  chatFontSize: '18px',
+}
+
+const BUTTON_STYLE = {
+  fontFamily: THEME.fontFamily,
+  fontSize: THEME.fontSize,
+  padding: '0.2rem 1rem',
+  background: THEME.clickableElementColor,
+  border: 0,
+  cursor: 'pointer',
+  borderRadius: '3px',
+  color: 'white',
+}
+
+const INPUT_STYLE = {
+  fontFamily: THEME.fontFamily,
+  fontSize: THEME.fontSize,
+  padding: '0.2rem',
+  border: '1px solid #555',
+  width: '100%',
+  borderRadius: '3px',
+}
+
+const MESSAGE_BACKGROUND = {
+  background: '#d7e9a7',
+  border: '1px solid #bbcb91',
+  borderRadius: '3px',
+  marginBottom: '1rem',
+  padding: '1rem',
+  width: '80vw',
+}
+
+const SPECIAL_MESSAGES = new Map([
+  [
+    SYSTEM,
+    {
+      background: '#000',
+      border: '1px solid #000',
+      color: 'white',
+      marginLeft: 'auto',
+    },
+  ],
+  [
+    ME,
+    {
+      marginLeft: 'auto',
+      background: '#a9daeb',
+      border: '1px solid #96c1d0',
+    },
+  ],
+])
+
+const CALLSIGN_STYLE = {
+  fontWeight: 'bold',
+}
+
 // -----------------------------------------------------------------------------
 // APPLICATION STATE
 // -----------------------------------------------------------------------------
 
+function parseMessage (text) {
+  let m = /^\[([^\]]+)]:(.*)$/.exec(text)
+  if (!m) return [SYSTEM, text]
+  return [m[1], m[2].trim()]
+}
+
 let state = observable({
+  callsign: localStorage.callsign || 'Anonymous',
   params: {
     frequency: '' + DEFAULT_FREQUENCY,
     bandwidth: '' + DEFAULT_BANDWIDTH,
@@ -106,13 +151,16 @@ let state = observable({
 
   connect () {
     let model = this
+    localStorage.callsign = model.callsign
     let q = []
     for (let [param, value] of Object.entries(model.params)) {
       q.push(`${param}=${encodeURIComponent(value)}`)
     }
     let ws = new WebSocket(`ws://${ORIGIN}/sock?${q.join('&')}`)
     ws.onmessage = function ({ data }) {
-      model.messages.push(data)
+      if (data.startsWith('>')) data = data.slice(1)
+      let [callsign, text] = parseMessage(data)
+      if (text) model.addMessage(callsign, text)
     }
     ws.onclose = function () {
       model.socket = null
@@ -130,11 +178,20 @@ let state = observable({
   },
 
   send () {
+    let model = this
     if (this.socket) {
-      this.socket.send(this.text)
-      this.messages.push(`< ${this.text}`)
-      this.text = ''
+      this.socket.send(`[${this.callsign}]: ${this.text}`)
+      runInAction(function () {
+        model.addMessage(ME, model.text)
+        model.text = ''
+      })
     }
+  },
+
+  addMessage (callsign, text) {
+    let lastMessage = this.messages[this.messages.length - 1]
+    if (lastMessage?.callsign === callsign) lastMessage.text += '\n' + text
+    else this.messages.push({ callsign, text })
   },
 })
 
@@ -162,16 +219,19 @@ let Select = observer(function ({ label, options, param }) {
   )
 })
 
-let Input = observer(function ({ label, error, param }) {
+let Input = observer(function ({ label, error, param, property }) {
   function onChange (e) {
-    state.updateParam(param, e.target.value)
+    if (param) state.updateParam(param, e.target.value)
+    else if (property) state[property] = e.target.value
   }
+
+  let value = param ? state.params[param] : state[property]
 
   return (
     <div style={{ marginBottom: '1pt' }}>
       <label style={{ display: 'block', marginBottom: '0.5rem' }}>
         <p>{label}:</p>
-        <input style={INPUT_STYLE} type="numeric" value={state.params[param]}
+        <input style={INPUT_STYLE} type="numeric" value={value}
                onChange={onChange}/>
       </label>
       {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -197,6 +257,24 @@ let LinkButton = observer(function ({ children, onClick }) {
   )
 })
 
+let Message = observer(function ({ message }) {
+  let messageStyle = {
+    ...MESSAGE_BACKGROUND,
+    ...SPECIAL_MESSAGES.get(message.callsign),
+  }
+
+  let callsign = ALIASES.get(message.callsign) || message.callsign
+
+  return (
+    <li style={messageStyle}>
+      <p style={CALLSIGN_STYLE}>{callsign}</p>
+      <pre style={{ fontFamily: THEME.fontFamily }}>
+        {message.text}
+      </pre>
+    </li>
+  )
+})
+
 // -----------------------------------------------------------------------------
 // PAGES
 // -----------------------------------------------------------------------------
@@ -218,6 +296,7 @@ let Setup = observer(function App () {
       <div>
         <h1 style={{ marginBottom: '2rem' }}>Othernet radio chat</h1>
         <form onSubmit={onSubmit}>
+          <Input label="Callsign/name" property="callsign"/>
           <Input label="Frequency (MHz)" param="frequency"
                  error={state.freqError}/>
           <Select label="Bandwdith (kHz)" options={BANDWIDTH_OPTIONS}
@@ -299,41 +378,57 @@ let ChatWindow = observer(function () {
             borderRight: '1px solid white',
             borderBottom: '1px solid white',
             padding: '1rem',
+            marginBottom: '1rem',
           }}>
           {state.messages.map(function (message) {
             return (
-              <li>
-                <pre>{message}</pre>
-              </li>
+              <Message message={message}/>
             )
           })}
-          <li>
-            <form
-              style={{
-                background: THEME.chatInputLineBackground,
-                padding: '0.2rem 0.5rem',
-                fontFamily: THEME.chatFontFamily,
-                fontSize: THEME.chatFontSize,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-              onSubmit={sendMessage}>
-              : <input
-                autoFocus
-                value={state.text}
-                style={{
-                  width: '100%',
-                  border: 0,
-                  outline: 0,
-                  fontFamily: THEME.chatFontFamily,
-                  fontSize: THEME.chatFontSize,
-                  background: 'transparent',
-                }}
-                onChange={updateText}/>
-            </form>
-          </li>
         </ul>
+        <form
+          style={{
+            background: 'white',
+            fontFamily: THEME.chatFontFamily,
+            fontSize: THEME.chatFontSize,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            height: '3rem',
+            boxShadow: 'inset 3px 3px 5px rgba(0, 0, 0, 0.2)',
+            border: '1px solid #ddd',
+            borderRadius: '5px',
+            overflow: 'hidden',
+          }}
+          onSubmit={sendMessage}>
+          <input
+            autoFocus
+            value={state.text}
+            style={{
+              padding: '0.2rem 0.5rem',
+              width: '100%',
+              border: 0,
+              outline: 0,
+              fontFamily: THEME.fontFamily,
+              fontSize: THEME.fontSize,
+              background: 'transparent',
+            }}
+            onChange={updateText}/>
+          <button style={{
+            padding: '0.2rem 0.5rem',
+            background: THEME.clickableElementColor,
+            color: 'white',
+            height: '100%',
+            width: '8rem',
+            cursor: 'pointer',
+            border: '0',
+            fontFamily: THEME.fontFamily,
+            fontSize: THEME.fontSize,
+            borderRadius: '0',
+          }}>
+            Send ↵
+          </button>
+        </form>
       </div>
     </>
   )
