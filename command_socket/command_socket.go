@@ -55,6 +55,7 @@ func stdoutToSock(ws *websocket.Conn, outputIO <-chan []byte, errIO chan<- Error
 			ws.SetWriteDeadline(time.Now().Add(writeWait))
 			log.Println("[SOCKET] <- [outputIO]", string(msg))
 			if err := ws.WriteMessage(websocket.TextMessage, msg); err != nil {
+				log.Println("[SOCKET] <- [outputIO] GARBLED!")
 				if err := ws.WriteMessage(websocket.TextMessage,
 					[]byte("Last message was garbled")); err != nil {
 					errIO <- Error{err: err, msg: "Could not write to socket"}
