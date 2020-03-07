@@ -54,11 +54,13 @@ the project directory.
 
 ## Cross-compiling for Dreamcatcher
 
+To cross-compile, you will need to have [upx](https://upx.github.io) installed.
+
 To cross-compile this program for the Dreamcatcher (build on a non-Dreamcatcher 
 machine), run the following command:
 
 ```bash
-GOARM=7 GOARCH=arm GOOS=linux go build
+GOARM=7 GOARCH=arm GOOS=linux go build -ldflags="-s -w"
 ```
 
 On Windows machines, the above will not work. Use this instead:
@@ -67,5 +69,11 @@ On Windows machines, the above will not work. Use this instead:
 set GOARM=7 
 set GOARCH=arm 
 set GOOS=linux 
-go build
+go build -ldflags="-s -w"
+```
+
+Once the build is done, we compress the binary using UPX:
+
+```bash
+upx --brute wschat
 ```
