@@ -1,6 +1,6 @@
 {
   "name": "wschat",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "WebScoket chat - web UI for a chatty command line tool",
   "main": "dist/index.js",
   "scripts": {
