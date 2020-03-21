@@ -2,12 +2,16 @@ package command_socket
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"strconv"
+	"unicode/utf8"
 )
+
+var GARBLED = errors.New("garbled")
 
 func stdoutToOutput(r io.ReadCloser, outputIO chan<- []byte,
 	errorIO chan<- Error) {
@@ -16,8 +20,13 @@ func stdoutToOutput(r io.ReadCloser, outputIO chan<- []byte,
 	s := bufio.NewScanner(r)
 	for s.Scan() {
 		msg := s.Bytes()
-		log.Println("[outputIO] <- [STDOUT]", string(msg))
-		outputIO <- msg
+		if utf8.Valid(msg) {
+			log.Println("[outputIO] <- [STDOUT]", string(msg))
+			outputIO <- msg
+		} else {
+			errorIO <- Error{err: GARBLED, msg: "Last message was garbled"}
+			log.Println("[STDOUT] Invalid message received")
+		}
 	}
 	log.Println("No more messages to send")
 	if s.Err() != nil {
