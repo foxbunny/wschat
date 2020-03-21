@@ -9,7 +9,7 @@ capabilities.
 
 ## Getting the latest version
 
-TODO
+Look under [releases](https://github.com/foxbunny/wschat/releases).
 
 ## Running the server
 
