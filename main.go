@@ -12,7 +12,7 @@ import (
 	"os/exec"
 )
 
-const VERSION = "0.0.5"
+const VERSION = "0.0.7"
 
 var (
 	addr    = flag.String("addr", "127.0.0.1:8080", "http service address")
