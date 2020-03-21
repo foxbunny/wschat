@@ -7,6 +7,7 @@ import ReactDOM from 'react-dom'
 // CONSTANTS
 // -----------------------------------------------------------------------------
 
+const MAX_MESSAGE_LENGTH = 47
 const DEFAULT_FREQUENCY = 1000
 const DEFAULT_BANDWIDTH = 400
 const DEFAULT_CODING_RATE = 5
@@ -128,7 +129,12 @@ let state = observable({
   },
   messages: [],
   text: '',
+  charCount: 0,
   socket: null,
+
+  get charsRemaining () {
+    return MAX_MESSAGE_LENGTH - this.charCount
+  },
 
   get isConnected () {
     return this.socket != null
@@ -142,6 +148,9 @@ let state = observable({
   },
 
   updateText (text) {
+    let nChars = text.length
+    if (text.length > MAX_MESSAGE_LENGTH) return
+    this.charCount = nChars
     this.text = text
   },
 
@@ -233,6 +242,7 @@ let Input = observer(function ({ label, error, param, property }) {
         <p>{label}:</p>
         <input style={INPUT_STYLE} type="numeric" value={value}
                onChange={onChange}/>
+
       </label>
       {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>
@@ -294,7 +304,13 @@ let Setup = observer(function App () {
       fontSize: THEME.fontSize,
     }}>
       <div>
-        <h1 style={{ marginBottom: '2rem' }}>Othernet radio chat</h1>
+        <h1 style={{
+          marginBottom: '2rem',
+          textAlign: 'center',
+          fontWeight: 'normal',
+        }}>
+          Othernet radio chat
+        </h1>
         <form onSubmit={onSubmit}>
           <Input label="Callsign/name" property="callsign"/>
           <Input label="Frequency (MHz)" param="frequency"
@@ -414,6 +430,15 @@ let ChatWindow = observer(function () {
               background: 'transparent',
             }}
             onChange={updateText}/>
+          <span style={{
+            color: state.charsRemaining ? '#999' : 'red',
+            fontSize: '0.8rem',
+            padding: '0 1rem',
+            textAlign: 'right',
+            width: '4rem',
+          }}>
+            {state.charsRemaining}
+          </span>
           <button style={{
             padding: '0.2rem 0.5rem',
             background: THEME.clickableElementColor,

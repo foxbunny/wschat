@@ -7,6 +7,13 @@ This program was developed to expose through the websocket protocol the chat
 program developed for testing the [Othernet Dreamcatcher](https://othernet.is/products/dreamcatcher-3-0) 
 capabilities.
 
+## Message length limit
+
+Currently, messages are limited to 47 characters. This is the number of
+characters that we could reliably transmit in our trials. If you would like to
+build a custom version to change the limit, you can do that by modifying the 
+JavaScript part of the code.
+
 ## Getting the latest version
 
 Look under [releases](https://github.com/foxbunny/wschat/releases).
